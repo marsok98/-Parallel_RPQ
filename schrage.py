@@ -27,13 +27,17 @@ class schrage:
         while(len(N_g) != 0 or len(N_n) != 0):
             while(len(N_n) != 0 and min(N_n,key= lambda data:data.prep_time).prep_time <= current_time):#budowanie zbioru zadan gotowych do uszeregowania
                 j = N_n.index(min(N_n, key= lambda data:data.prep_time))
-                N_g.append(N_n.pop(j))
+                N_g.append(N_n.pop(j))#wrzucamy na zbior po kryterium najmniejszego czasu
             if len(N_g) == 0: #aktualizacja chwili
                 current_time = min(N_n, key= lambda data:data.prep_time).prep_time
             else:
-                j = N_g.index(max(N_g, key= lambda data:data.deliv_time))
-                tmp = N_g.pop(j)
-                self.part_perm.append(tmp.task_num)
+                j = N_g.index(max(N_g, key= lambda data:data.deliv_time))#szukamy maksymalnego czasu delivery
+                tmp = N_g.pop(j)#zdejmujemy to zadanie z wstepnie uszeregowanej tablicy
+                #w tym miejscu nalezy dodac rownoleglosc w postaci dwoch list uszeregowan
+                #zaczac od wrzucania bez kryterium, poprostu jeden tu jeden tu
+                #i policzyc cmax
+                #potem dopiero pobawic sie z kryterium i to bedzie tyle na wielki rownolegly rpq?
+                self.part_perm.append(tmp.task_num)#appendujemy na liste rozwiazan
                 current_time += tmp.make_time
                 self.max_end_time = max(self.max_end_time, current_time + tmp.deliv_time)
 
