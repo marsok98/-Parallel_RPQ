@@ -15,6 +15,11 @@ class schrage:
         self.matrix_tasks=[]
         self.part_perm = []
         self.max_end_time = 0
+        ######################
+        self.part_perm_1 = []
+        self.part_perm_2 = []
+        self.max_end_time_1 = 0
+        self.max_end_time_2 = 0
 
 
     def schrange_alg(self,matrix_rpq):
@@ -29,7 +34,8 @@ class schrage:
                 j = N_n.index(min(N_n, key= lambda data:data.prep_time))
                 N_g.append(N_n.pop(j))#wrzucamy na zbior po kryterium najmniejszego czasu
             if len(N_g) == 0: #aktualizacja chwili
-                current_time = min(N_n, key= lambda data:data.prep_time).prep_time
+                #current_time = min(N_n, key= lambda data:data.prep_time).prep_time
+                pass
             else:
                 j = N_g.index(max(N_g, key= lambda data:data.deliv_time))#szukamy maksymalnego czasu delivery
                 tmp = N_g.pop(j)#zdejmujemy to zadanie z wstepnie uszeregowanej tablicy
@@ -43,35 +49,52 @@ class schrage:
 
         return self.max_end_time, self.part_perm
 
-    def schrange_alg_interrupt(self,matrix_rpq):
+    def schrange_alg_parallel(self,matrix_rpq):
         self.matrix_tasks = matrix_rpq
-        N_g = []
         N_n = self.matrix_tasks.copy()
-        # current_time = min(N_n)[0] #najmniejszy czas przygotowania w zadaniach
-        current_time = min(N_n, key=lambda data: data.prep_time).prep_time
-        l = N_n[0]
-        while (len(N_g) != 0 or len(N_n) != 0):
-            while (len(N_n) != 0 and min(N_n, key=lambda data: data.prep_time).prep_time <= current_time):
-                j = N_n.index(min(N_n, key=lambda data: data.prep_time))
-                tmp = N_n.pop(j)
-                N_g.append(tmp)
-                if tmp.deliv_time > l.deliv_time:
-                    l.make_time = current_time - tmp.prep_time
-                    current_time = tmp.prep_time
-                    if l.make_time > 0:
-                        N_g.append(l)
-            if len(N_g) == 0:
-                current_time = min(N_n, key=lambda data: data.prep_time).prep_time
+
+        N_g_1 = [] #zbior zadan do uszeregowania maszyna 1
+        N_g_2 = [] #zbior zadan do uszeregowania maszyna 2
+
+        current_time_1 =  min(N_n,key= lambda data:data.prep_time).prep_time #zadanie o najkrotszym czasie przygotowania
+        j = N_n.index(min(N_n, key=lambda data: data.prep_time))
+        temp_min_elem = N_n.pop(j) #sciagamy
+        current_time_2 = min(N_n, key=lambda data: data.prep_time).prep_time #i z tego co zostalo wybieramy kolejne najkrotsze
+        N_n.append(temp_min_elem) #appendujemy z powrotem
+
+
+        while(len(N_g_1) != 0 or len(N_g_2) != 0 or len(N_n) != 0):
+            while(len(N_n) != 0 and ((min(N_n,key= lambda data:data.prep_time).prep_time <= current_time_1) or
+                                      min(N_n,key= lambda data:data.prep_time).prep_time <= current_time_2)):
+
+                if min(N_n,key= lambda data:data.prep_time).prep_time <= current_time_1:
+                    j = N_n.index(min(N_n, key=lambda data: data.prep_time))
+                    N_g_1.append(N_n.pop(j))  # wrzucamy na zbior po kryterium najmniejszego czasu
+
+                if len(N_n) != 0 and min(N_n,key= lambda data:data.prep_time).prep_time <= current_time_2:
+                    j = N_n.index(min(N_n, key=lambda data: data.prep_time))
+                    N_g_2.append(N_n.pop(j)) #gdybysmy chcieli wrzucic to samo zadanie, ktore przeszlo pierwszego while, to niemozliwe bo juz zdjelismy to z tablicy\
+
+            if len(N_g_1) == 0:
+                current_time_1 = min(N_n, key=lambda data: data.prep_time).prep_time
             else:
-                j = N_g.index(max(N_g, key=lambda data: data.deliv_time))
-                tmp2 = N_g.pop(j)
-                l = tmp2
-                current_time += tmp2.make_time
+                j = N_g_1.index(max(N_g_1, key= lambda data:data.deliv_time))#szukamy maksymalnego czasu delivery
+                tmp = N_g_1.pop(j)#zdejmujemy to zadanie z wstepnie uszeregowanej tablicy
+                self.part_perm_1.append(tmp.task_num)#appendujemy na liste rozwiazan
+                current_time_1 += tmp.make_time
+                self.max_end_time_1 = max(self.max_end_time_1, current_time_1 + tmp.deliv_time)
 
-                self.max_end_time = max(self.max_end_time, current_time + tmp2.deliv_time)
+            if len(N_g_2) == 0 and len(N_n) !=0 :
+                current_time_2 = min(N_n, key=lambda data: data.prep_time).prep_time
+            elif len(N_g_2) !=0 :
+                j = N_g_2.index(max(N_g_2, key= lambda data:data.deliv_time))
+                tmp = N_g_2.pop(j)
+                self.part_perm_2.append(tmp.task_num)
+                current_time_2 += tmp.make_time
+                self.max_end_time_2 = max(self.max_end_time_2, current_time_2 + tmp.deliv_time)
+        self.max_end_time = max(self.max_end_time_1, self.max_end_time_2)
 
-        return self.max_end_time
-
+        return self.max_end_time, self.part_perm_1, self.part_perm_2
 
 def read_from_file(file_name):
     f = open(file_name, "r")
@@ -109,6 +132,8 @@ if __name__ == "__main__":
     sch = schrage()
 
     #sch.matrix_tasks[0].prep_time
-    x,y = sch.schrange_alg(read_from_file("dane.txt"))
-    print(x,y)
+    z=0
+    #x,y= sch.schrange_alg(read_from_file("dane.txt"))
+    x,y,z = sch.schrange_alg_parallel(read_from_file("dane.txt"))
+    print(x,y,z)
     #print(matrix[2].index(max(matrix,key=operator.itemgetter(2))[2]))
