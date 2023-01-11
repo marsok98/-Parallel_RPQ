@@ -1,2 +1,0 @@
-1. Zbiór danych testowych do problemu równoległego RPQ
-2.
