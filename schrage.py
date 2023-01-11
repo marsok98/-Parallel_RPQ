@@ -3,6 +3,7 @@ import operator
 import numpy as np
 import random
 import time as t
+import matplotlib.pyplot as plt
 
 
 class data:
@@ -105,36 +106,39 @@ class genetyk:
 
     def __init__(self):
         self.tasks_number = 0
-        self.numOfGenerations = 2000
+        self.numOfGenerations = None
         self.numOfPopulation = 32
         self.numberOfParents = 16
         ######################
         self.bestScore = 0
         self.bestSol = None
+        self.bestPossibleScore = 0
+        ######################
+        self.historyOfOptimisation = []
+        self.timeOfExecution = 0.0
 
     def solve(self, matrix):
+        timeStart = t.time()
 
         self.tasks_number = len(matrix)
         tasks = matrix.copy()
         self.bestScore = 10e9
 
         solutions = np.empty(shape=(self.numOfPopulation,self.tasks_number),dtype=data)
-        print(tasks[49].task_num,tasks[49].prep_time,tasks[49].make_time,tasks[49].deliv_time)
+
         # init - get initial population
         for i in range(0, self.numOfPopulation):
             random.shuffle(tasks)
             solutions[i] = tasks
-
-        for i in range(0,self.numOfGenerations):
+        i = 0
+        while self.bestPossibleScore < self.bestScore:
+        #for i in range(0,self.numOfGenerations):
+            i += 1
+            if i >= 2:
+                self.historyOfOptimisation.append(self.bestScore)
 
             if i%5==0:
                 print("Generation: ", i,"   Score: ",self.bestScore)
-            try:
-                #for k in range(0,self.tasks_number):
-                #    print(self.bestSol[k].task_num)
-                pass
-            except:
-                pass
 
             #asses fitness of population
             fit = self.calcTime(solutions)
@@ -152,6 +156,9 @@ class genetyk:
             childrenMutated = self.mutation(children)
 
             solutions = childrenMutated
+
+        timeStop = t.time()
+        self.timeOfExecution = timeStop - timeStart
 
     def mutation(self,solutions):
         mutated = np.empty(shape=(self.numOfPopulation, self.tasks_number), dtype=data)
@@ -225,9 +232,6 @@ class genetyk:
             for i in range(0,len(sol[0])):
                 time = np.max([time,sol[j,i].prep_time])  #we are in time t, if prep time Pt of current task is Pt > t, then jump with time to Pt
 
-                #print(i,time,sol[j, i].task_num, sol[j, i].prep_time, sol[j,i].make_time, sol[j,i].deliv_time)
-                #t.sleep(0.1)
-
                 M1Ready = True if M1EndOfTask <= time else False
                 M2Ready = True if M2EndOfTask <= time else False
 
@@ -239,7 +243,7 @@ class genetyk:
                     M2EndOfDelivery = np.max([M2EndOfDelivery, M2EndOfTask + sol[j, i].deliv_time])
                 else:
                     print("exception occurred")
-                #print(M1EndOfTask,M2EndOfTask)
+
                 time =          np.max([time,np.min([M1EndOfTask, M2EndOfTask])]) #next time jump when one of the machines finishes task
 
                 timeLonger =    np.max([M1EndOfDelivery, M2EndOfDelivery])
@@ -255,7 +259,16 @@ class genetyk:
             sumOfTimes[i] = tasks[i].prep_time + tasks[i].make_time + tasks[i].deliv_time
         print(np.argmax(sumOfTimes))
         print(sumOfTimes[np.argmax(sumOfTimes)])
+        self.bestPossibleScore = sumOfTimes[np.argmax(sumOfTimes)]
 
+    def plotHistory(self):
+        plt.plot(self.historyOfOptimisation)
+        plt.title('Optymalizacja algorytmem genetycznym, n= ' + str(self.tasks_number) + ', t= ' + str(int(self.timeOfExecution)) + 's')
+        #plt.text(600,3800,'Krotność problemu: '+str(self.tasks_number))
+        #plt.text(600, 3500, 'Czas obliczeń: ' + str(int(self.timeOfExecution)) + ' s')
+        plt.ylabel('Cmax')
+        plt.xlabel('Generacja')
+        plt.show()
 
 
 def read_from_file(file_name):
@@ -265,9 +278,7 @@ def read_from_file(file_name):
 
     list_from_file = line_from_file.split()
     number_of_tasks = int(list_from_file[0])
-    #?  number_of_machine = int(list_from_file[1])
 
-    loaded_table_from_file = []
     matrix_tasks = []
 
     for i in range(number_of_tasks):
@@ -278,11 +289,9 @@ def read_from_file(file_name):
         make_time = int(list_from_file[1])
         deliv_time = int(list_from_file[2])
         rpq = data(prep_time, make_time, deliv_time, i)
-
         matrix_tasks.append(rpq)
 
     return matrix_tasks
-
 
 
 if __name__ == "__main__":
@@ -298,7 +307,9 @@ if __name__ == "__main__":
     #print(matrix[2].index(max(matrix,key=operator.itemgetter(2))[2]))
     #gen.checkShortestPossible(read_from_file("dane2.txt"))
 
-    gen.solve(read_from_file("dane.txt"))
+    gen.checkShortestPossible(read_from_file("data001.txt"))
+    gen.solve(read_from_file("data001.txt"))
+    gen.plotHistory()
 
     # dane (dane008) - najlepiej możliwie 3605 a z materiałów wynika, że optymalnie 3633
     #dane 2 - najlepiej możliwie 3026
