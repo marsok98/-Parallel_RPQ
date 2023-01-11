@@ -1,5 +1,9 @@
 
 import operator
+import numpy as np
+import random
+import time as t
+
 
 class data:
     def __init__(self,prepare, make, delivery, task):
@@ -7,6 +11,7 @@ class data:
         self.make_time = make
         self.deliv_time = delivery
         self.task_num = task
+
 
 class schrage:
     def __init__(self):
@@ -20,7 +25,6 @@ class schrage:
         self.part_perm_2 = []
         self.max_end_time_1 = 0
         self.max_end_time_2 = 0
-
 
     def schrange_alg(self,matrix_rpq):
         self.matrix_tasks = matrix_rpq
@@ -96,19 +100,177 @@ class schrage:
 
         return self.max_end_time, self.part_perm_1, self.part_perm_2
 
+
+class genetyk:
+
+    def __init__(self):
+        self.tasks_number = 0
+        self.numOfGenerations = 2000
+        self.numOfPopulation = 32
+        self.numberOfParents = 16
+        ######################
+        self.bestScore = 0
+        self.bestSol = None
+
+    def solve(self, matrix):
+
+        self.tasks_number = len(matrix)
+        tasks = matrix.copy()
+        self.bestScore = 10e9
+
+        solutions = np.empty(shape=(self.numOfPopulation,self.tasks_number),dtype=data)
+        print(tasks[49].task_num,tasks[49].prep_time,tasks[49].make_time,tasks[49].deliv_time)
+        # init - get initial population
+        for i in range(0, self.numOfPopulation):
+            random.shuffle(tasks)
+            solutions[i] = tasks
+
+        for i in range(0,self.numOfGenerations):
+
+            if i%5==0:
+                print("Generation: ", i,"   Score: ",self.bestScore)
+            try:
+                #for k in range(0,self.tasks_number):
+                #    print(self.bestSol[k].task_num)
+                pass
+            except:
+                pass
+
+            #asses fitness of population
+            fit = self.calcTime(solutions)
+
+            # get and remember best solution
+            self.getBest(solutions,fit)
+
+            #decide on what are the best solutions for reproduction
+            matingPool = self.chooseMatingPool(solutions,fit)
+
+            #produce offspring
+            children = self.combination(matingPool)
+
+            #random mutation
+            childrenMutated = self.mutation(children)
+
+            solutions = childrenMutated
+
+    def mutation(self,solutions):
+        mutated = np.empty(shape=(self.numOfPopulation, self.tasks_number), dtype=data)
+
+        for i in range(0,self.numOfPopulation):
+            randomSwap1 = np.random.randint(0, self.tasks_number, 1)
+            randomSwap2 = np.random.randint(0, self.tasks_number, 1)
+
+            temp = solutions[i][randomSwap1]
+            solutions[i][randomSwap1] = solutions[i][randomSwap2]
+            solutions[i][randomSwap2] = temp
+
+            randomSwap1 = np.random.randint(0, self.tasks_number, 1)
+            randomSwap2 = np.random.randint(0, self.tasks_number, 1)
+
+            temp = solutions[i][randomSwap1]
+            solutions[i][randomSwap1] = solutions[i][randomSwap2]
+            solutions[i][randomSwap2] = temp
+
+            mutated[i] = solutions[i]
+        return mutated
+
+    def combination(self,matingPool):
+        children = np.empty(shape=(self.numOfPopulation,self.tasks_number),dtype=data)
+
+        for i in range(0,self.numOfPopulation):
+            partner1Idx = partner2Idx = 0
+            randomSplitOfGenome = np.random.randint(0,self.tasks_number,1)
+
+            while partner1Idx == partner2Idx:
+                partner1Idx = np.random.randint(0, self.numberOfParents, 1)
+                partner2Idx = np.random.randint(0, self.numberOfParents, 1)
+
+            partner1 = matingPool[partner1Idx][0]
+            partner2 = matingPool[partner2Idx][0]
+            randomSplitOfGenome = randomSplitOfGenome[0]
+
+            children[i] = partner2
+            #for j in range(0,randomSplitOfGenome):
+            #    children[i,j] = partner1[j]
+
+        return children
+
+    def chooseMatingPool(self,solutons,fiteness):
+
+        matingGroup = np.empty(shape=(self.numberOfParents,len(solutons[0])),dtype=data)
+        score = fiteness.copy()
+
+        for i in range(0,self.numberOfParents):
+            bestIdx = np.argmin(score)
+            matingGroup[i] = solutons[bestIdx]
+            score[bestIdx] = 10e9
+        return matingGroup
+
+    def getBest(self,solutions,fit):
+        bestIdx = np.argmin(fit)
+        if fit[bestIdx] < self.bestScore:
+            self.bestScore = fit[bestIdx]
+            self.bestSol = solutions[bestIdx]
+
+    def calcTime(self,sol):
+        timeLastDelivery = np.zeros(shape=len(sol))
+
+        for j in range(0,len(sol)):
+            M1EndOfTask = 0
+            M2EndOfTask = 0
+            M1EndOfDelivery = 0
+            M2EndOfDelivery = 0
+            time = 0
+
+            for i in range(0,len(sol[0])):
+                time = np.max([time,sol[j,i].prep_time])  #we are in time t, if prep time Pt of current task is Pt > t, then jump with time to Pt
+
+                #print(i,time,sol[j, i].task_num, sol[j, i].prep_time, sol[j,i].make_time, sol[j,i].deliv_time)
+                #t.sleep(0.1)
+
+                M1Ready = True if M1EndOfTask <= time else False
+                M2Ready = True if M2EndOfTask <= time else False
+
+                if M1Ready:
+                    M1EndOfTask = time + sol[j,i].make_time
+                    M1EndOfDelivery = np.max([M1EndOfDelivery,M1EndOfTask + sol[j,i].deliv_time])
+                elif M2Ready:
+                    M2EndOfTask = time + sol[j,i].make_time
+                    M2EndOfDelivery = np.max([M2EndOfDelivery, M2EndOfTask + sol[j, i].deliv_time])
+                else:
+                    print("exception occurred")
+                #print(M1EndOfTask,M2EndOfTask)
+                time =          np.max([time,np.min([M1EndOfTask, M2EndOfTask])]) #next time jump when one of the machines finishes task
+
+                timeLonger =    np.max([M1EndOfDelivery, M2EndOfDelivery])
+
+                timeLastDelivery[j] = np.max([timeLastDelivery[j],timeLonger])  # to time t, add time of delivery, check if this will be the last delivery, if yes - remember this time
+
+        return timeLastDelivery
+
+    def checkShortestPossible(self,tasks):
+        self.tasks_number = len(tasks)
+        sumOfTimes = np.zeros(shape=self.tasks_number)
+        for i in range(0,self.tasks_number):
+            sumOfTimes[i] = tasks[i].prep_time + tasks[i].make_time + tasks[i].deliv_time
+        print(np.argmax(sumOfTimes))
+        print(sumOfTimes[np.argmax(sumOfTimes)])
+
+
+
 def read_from_file(file_name):
     f = open(file_name, "r")
 
     line_from_file = f.readline()
 
     list_from_file = line_from_file.split()
-    number_of_task = int(list_from_file[0])
-    number_of_machine = int(list_from_file[1])
+    number_of_tasks = int(list_from_file[0])
+    #?  number_of_machine = int(list_from_file[1])
 
     loaded_table_from_file = []
     matrix_tasks = []
 
-    for i in range(number_of_task):
+    for i in range(number_of_tasks):
         line_from_file = f.readline()
         list_from_file = line_from_file.split()
 
@@ -123,17 +285,20 @@ def read_from_file(file_name):
 
 
 
-
-
-
-
-
 if __name__ == "__main__":
-    sch = schrage()
 
+    sch = schrage()
+    gen = genetyk()
     #sch.matrix_tasks[0].prep_time
-    z=0
     #x,y= sch.schrange_alg(read_from_file("dane.txt"))
-    x,y,z = sch.schrange_alg_parallel(read_from_file("dane.txt"))
-    print(x,y,z)
+    #x,y,z = sch.schrange_alg_parallel(read_from_file("dane.txt"))
+    #data = read_from_file("dane.txt")
+    #print(x,y,z)
+    #print(data[5].task_num)
     #print(matrix[2].index(max(matrix,key=operator.itemgetter(2))[2]))
+    #gen.checkShortestPossible(read_from_file("dane2.txt"))
+
+    gen.solve(read_from_file("dane.txt"))
+
+    # dane (dane008) - najlepiej możliwie 3605 a z materiałów wynika, że optymalnie 3633
+    #dane 2 - najlepiej możliwie 3026
