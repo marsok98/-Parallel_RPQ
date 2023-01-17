@@ -16,14 +16,13 @@ class data:
 
 class schrage:
 
-    def __init__(self,numOfMachines):
+    def __init__(self):
         self.tasks_number = 0
         self.stages_number = 3
         self.matrix_tasks = []
         self.part_perm = []
         self.max_end_time = 0
         self.max_end_time_parallel = 0
-        self.numOfMachines = numOfMachines
         ######################
         self.part_perm_1 = []
         self.part_perm_2 = []
@@ -63,6 +62,7 @@ class schrage:
         timeStop = t.time()
         self.timeOfExecution = timeStop - timeStart
 
+
     def checkShortestPossible(self, tasks):
         self.tasks_number = len(tasks)
         sumOfTimes = np.zeros(shape=self.tasks_number)
@@ -80,7 +80,7 @@ class schrage:
                     solution.append(tasks[j])
         return solution
 
-    def calcTimeParallelOLD(self,sol):
+    def calcTimeParallel(self,sol):
 
         timeLastDelivery = 0
         M1EndOfTask = 0
@@ -107,36 +107,6 @@ class schrage:
 
         return timeLastDelivery
 
-    def calcTimeParallel(self,sol):
-
-        timeLastDelivery = 0
-        time = 0
-        MReady = np.full(shape=self.numOfMachines,fill_value=False)
-        MEndOfTask = np.zeros(shape=self.numOfMachines)
-        MEndOfDelivery = np.zeros(shape=self.numOfMachines)
-
-        for i in range(0,len(sol)):
-            time = np.max([time,sol[i].prep_time])  #we are in time t, if prep time Pt of current task is Pt > t, then jump with time to Pt
-
-            for k in range(0,self.numOfMachines):
-                MReady[k] = True if MEndOfTask[k] <= time else False
-
-            for k in range(0, self.numOfMachines):
-
-                if MReady[k]:
-                    MEndOfTask[k] = time + sol[i].make_time
-                    MEndOfDelivery[k] = np.max([MEndOfDelivery[k],MEndOfTask[k] + sol[i].deliv_time])
-                    break
-
-                elif k == self.numOfMachines-1:
-                    print("exception occurred")
-
-            time =          np.max([time,np.min(MEndOfTask)]) #next time jump when one of the machines finishes task
-            timeLonger =    np.max(MEndOfDelivery)
-            timeLastDelivery = np.max([timeLastDelivery,timeLonger])  # to time t, add time of delivery, check if this will be the last delivery, if yes - remember this time
-
-        return timeLastDelivery
-
     def printRaport(self):
         print("Solution found: ", str(self.part_perm))
         print("Best possible time: ", str(self.bestPossibleTime))
@@ -148,23 +118,23 @@ class genetyk:
 
     def __init__(self,numOfMachines):
         self.tasks_number = 0
-        self.numOfPopulation = 16  #16 , 6 good for sets 1-8
-        self.numberOfParents = 3   # 16 / 4 good for larger sets 10-12
+        self.numOfPopulation = 16
+        self.numberOfParents = 4
         self.numOfMachines = numOfMachines
         ######################
-        self.bestScore = 10e12
+        self.bestScore = 10e9
         self.bestSol = None
         self.bestPossibleScore = 0
         ######################
         self.historyOfOptimisation = []
         self.timeOfExecution = 0.0
         self.iterations = 0
-        self.iterationsMax = 6000
+        self.iterationsMax = 8000
         self.iterationsWithNoChangeMax = 600
         self.iterationsWithNoChange = 0
 
     def clearData(self):
-        self.bestScore = 10e12
+        self.bestScore = 10e9
         self.bestSol = None
         ######################
         self.historyOfOptimisation = []
@@ -187,7 +157,7 @@ class genetyk:
 
         self.iterations = 0
         while self.bestPossibleScore < self.bestScore and self.iterations < self.iterationsMax and self.iterationsWithNoChange < self.iterationsWithNoChangeMax:
-        #while self.iterations < self.iterationsMax and self.iterationsWithNoChange < self.iterationsWithNoChangeMax:
+
             self.iterations += 1
             self.iterationsWithNoChange += 1
 
@@ -226,35 +196,7 @@ class genetyk:
         if not self.iterationsWithNoChange < self.iterationsWithNoChangeMax:
             print("Max num of generations without a change of score reached")
 
-    def adjustHiperparams(self):
-        if self.tasks_number <= 75:
-            self.numberOfParents = 6
-        elif self.tasks_number <= 201:
-            self.numberOfParents = 4
-        else:
-            self.numberOfParents = 3
-
     def mutation(self,solutions):
-
-        mutated = np.empty(shape=(self.numOfPopulation, self.tasks_number), dtype=data)
-
-        for i in range(0,self.numOfPopulation):
-            #numOfSwaps = np.random.randint(1, 3, 1)[0] # more than 1 swap slows down algorithm a lot
-            numOfSwaps = 1
-            #print("num of swaps: ",numOfSwaps)
-            for k in range(0,numOfSwaps):
-
-                randomSwapTo = np.random.randint(0, self.tasks_number, numOfSwaps)
-                randomSwapFrom = np.random.randint(0, self.tasks_number, numOfSwaps)
-
-                temp = solutions[i][randomSwapTo[k]]
-                solutions[i][randomSwapTo[k]] = solutions[i][randomSwapFrom[k]]
-                solutions[i][randomSwapFrom[k]] = temp
-
-            mutated[i] = solutions[i]
-        return mutated
-
-    def mutationOLD(self,solutions):
         mutated = np.empty(shape=(self.numOfPopulation, self.tasks_number), dtype=data)
 
         for i in range(0,self.numOfPopulation):
@@ -326,40 +268,6 @@ class genetyk:
             self.bestSol = solutions[bestIdx]
 
     def calcTime(self,sol):
-        timeLastDelivery = np.zeros(shape=len(sol))
-
-        for j in range(0,len(sol)):
-
-            MReady = np.full(shape=self.numOfMachines,fill_value=False)
-            MEndOfTask = np.zeros(shape=self.numOfMachines)
-            MEndOfDelivery = np.zeros(shape=self.numOfMachines)
-            time = 0
-
-            for i in range(0,len(sol[0])):
-
-                time = np.max([time,sol[j,i].prep_time])  #we are in time t, if prep time Pt of current task is Pt > t, then jump with time to Pt
-
-                for k in range(0,self.numOfMachines):
-                    MReady[k] = True if MEndOfTask[k] <= time else False
-
-                for k in range(0, self.numOfMachines):
-                    #print("Sol:", j, "Task:", i, "k: ", k, "time", time, "M1 Ready:", MEndOfTask[0], "M2 Ready:",MEndOfTask[1], "M3 Ready:", MEndOfTask[2], "M4 Ready:", MEndOfTask[3])
-                    if MReady[k]:
-                        MEndOfTask[k] = time + sol[j,i].make_time
-                        MEndOfDelivery[k] = np.max([MEndOfDelivery[k],MEndOfTask[k] + sol[j,i].deliv_time])
-                        break
-                    elif k == self.numOfMachines-1:
-                        print("exception occurred")
-
-                time =          np.max([time,np.min(MEndOfTask)]) #next time jump when one of the machines finishes task
-
-                timeLonger =    np.max(MEndOfDelivery)
-
-                timeLastDelivery[j] = np.max([timeLastDelivery[j],timeLonger])  # to time t, add time of delivery, check if this will be the last delivery, if yes - remember this time
-
-        return timeLastDelivery
-
-    def calcTimeOLD(self,sol):
         timeLastDelivery = np.zeros(shape=len(sol))
 
         for j in range(0,len(sol)):
@@ -520,44 +428,6 @@ def plotResults_2():
     plt.show()
 
 
-def plotResults_3():
-    # set width of bar
-    barWidth = 0.25
-    fig = plt.subplots(figsize=(12, 8))
-
-    # set height of bar
-    baseline = [3798, 3798, 3798, 3798]
-    Schrage = [5211, 4136, 3799, 3799]
-    Gen = [4304, 3798, 3798, 3798]
-
-    # Set position of bar on X axis
-    br1 = np.arange(len(Schrage))
-    br2 = [x + barWidth for x in br1]
-    br3 = [x + barWidth for x in br2]
-
-    max_y_lim = 5250
-    min_y_lim = 3700
-    plt.ylim(min_y_lim, max_y_lim)
-
-    # Make the plot
-    plt.bar(br1, baseline, color='#D8E389', width=barWidth,
-            edgecolor='grey', label='Teoretycznie możliwy najlepszy wynik')
-    plt.bar(br3, Schrage, color='#89ABE3FF', width=barWidth,
-            edgecolor='grey', label='Algorytm Schrage')
-    plt.bar(br2, Gen, color=(1, 0.74, 0.8), width=barWidth,
-            edgecolor='grey', label='Algorytm Genetyczny')
-
-    # Adding Xticks
-    plt.xlabel('Liczba maszyn w zespole', fontweight='bold', fontsize=15)
-    plt.ylabel('Cmax odnalezionego rozwiązania', fontweight='bold', fontsize=15)
-    plt.xticks([r + barWidth for r in range(len(Schrage))],
-               ['k = 4', 'k = 6', 'k = 8', 'k = 10'])
-    plt.title("Wyniki optymalizacji ")
-
-    plt.legend()
-    plt.show()
-
-
 def calcDiff1():
     Schrage = [3026, 3652, 3309, 3172, 3618, 3435, 3821, 3605]
     Gen = [3026, 3643, 3309, 3172, 3618, 3413, 3798, 3605]
@@ -578,39 +448,25 @@ def calcDiff2():
     print(res)
 
 
-def calcDiff3():
-
-    # k = 4 6 8 10
-    baseline = [3798,3798,3798,3798]
-    Schrage = [5211,4136,3799,3799]
-    Gen = [4304,3798,3798,3798]
-
-    res = []
-    for i in range(0,len(Gen)):
-        res.append(((Gen[i] / Schrage[i])-1.0)*100)
-    print(res)
-
-
 if __name__ == "__main__":
 
 
-    plotResults_3()
-    #calcDiff3()
+    #plotResults_2()
+    #calcDiff2()
 
-    executeSchrage = False
-    executeGenetic = False
-    testData = read_from_file("data012.txt")
-    numOfMachines = 10
+    executeSchrage = True
+    executeGenetic = True
+    testData = read_from_file("data011.txt")
 
     if executeSchrage:
-        sch = schrage(numOfMachines)
+        sch = schrage()
         sch.checkShortestPossible(testData)
         sch.schrange_alg(testData)
         sch.printRaport()
         print("\n")
 
     if executeGenetic:
-        gen = genetyk(numOfMachines)
+        gen = genetyk(4)
         gen.checkShortestPossible(testData)
         gen.solve(testData)
         gen.checkBestSol()
